@@ -8,8 +8,8 @@ public:
   int width;
   int height;
 
-  public:
-    Obstacle(float startX, float startY, int w, int h);
-    void asSquare(Adafruit_SSD1306& oled, int groundY);
-    int updatePosition(float speed, int SCREEN_WIDTH);
+public:
+  Obstacle(float startX, float startY, int w, int h);
+  void asSquare(Adafruit_SSD1306 &oled, int groundY);
+  void updatePosition(float speed);
 };

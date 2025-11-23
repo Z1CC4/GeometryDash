@@ -13,14 +13,8 @@ Obstacle::Obstacle(float startX, float startY, int w, int h) {
 
  
 
-int Obstacle::updatePosition(float speed, int SCREEN_WIDTH) {
-    // Wenn komplett links raus, respawn rechts
+void Obstacle::updatePosition(float speed) {
     if ((x + width > 0)) {
       x -= speed;
-      return 0;
-    } else {
-      x = SCREEN_WIDTH;
-      return 1;
-      // Eleminate obstacle
     }
   }

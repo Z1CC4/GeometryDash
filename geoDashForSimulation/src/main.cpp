@@ -3,6 +3,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <Wire.h>
+#include <vector>
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -16,13 +17,16 @@ const int playerXPosition = 20;
 const int gameButtonPin = 14;
 const int leftButtonPin = 27;
 const int rightButtonPin = 26;
-const float obstacleSpeed = 2.0;
 
+float obstacleSpeed = 2.0;
 bool play = true;
 int score = 0;
 int highscore = 0;
+int spawnInterval = 2000;
+int lastSpawnTime = 0;
 
-// Game States
+std::vector<Obstacle> obstacles;
+
 enum GameState { MENU, PLAYING, GAME_OVER };
 GameState currentState = MENU;
 
@@ -57,7 +61,8 @@ void gameOverScreen() {
   oled.display();
 
   if (digitalRead(gameButtonPin) == LOW) {
-    delay(200); 
+    delay(200);
+    // reset game
     score = 0;
     obstacle.x = SCREEN_WIDTH;
     player.y = groundY - playerHeight;
@@ -70,7 +75,7 @@ void gameOverScreen() {
 // game helper functions
 void ground() { oled.drawLine(0, 54, 127, 54, SSD1306_WHITE); }
 
-void updatePlayer(Player player) {
+void updatePlayer(Player &player) {
   if (isJumping) {
     player.y += velocityY;
     velocityY += 0.3; // Gravitation
@@ -84,12 +89,12 @@ void updatePlayer(Player player) {
 }
 
 bool checkCollision(Obstacle obstacle, Player player) {
-  // Einfache AABB-Kollisionsabfrage
+  // simply AABB collision detection
   if (playerXPosition < obstacle.x + obstacle.width &&
       playerXPosition + playerWidth > obstacle.x &&
       player.y < groundY - obstacle.height + obstacle.height &&
       player.y + playerHeight > groundY - obstacle.height) {
-    // Kollision erkannt
+    // Collision detected
     return true;
   }
   return false;
@@ -103,22 +108,56 @@ void startJump() {
   }
 }
 
+void spawnObstacle(int score) {
+  // spwan dauer verkürzen bei jeden 10 punkten
+  if (score % 10 == 0 && score != 0) {    // change only every 10 points
+    spawnInterval -= -(score / 10) * 100; // every 10 points 100ms less
+    obstacleSpeed += 0.2;
+  }
+  // einen timer, wenn der abgelaufen ist wird ein neues Hindernis gespawnt
+  if (millis() > lastSpawnTime + spawnInterval) {
+    // hindernisse müssen höhe und breite zufällig kommen, position auch - muss
+    // alles ein min und max geben
+    lastSpawnTime = millis();
+    int obstacleHeight = random(5, 30);
+    int obstacleWidth = random(5, 15);
+    int obsticleY = random(10, groundY - obstacleHeight);
+    lastSpawnTime = millis();
+    obstacles.push_back(
+        Obstacle(SCREEN_WIDTH, obsticleY, obstacleWidth, obstacleHeight));
+  }
+}
+
 void game(int playerShape) {
   oled.clearDisplay();
-
-  // Button-Check für Sprung
+  // Button check for jump
   if (digitalRead(gameButtonPin) == LOW) {
     startJump();
   }
 
-  // Player-Physik updaten
   updatePlayer(player);
 
-  score += obstacle.updatePosition(obstacleSpeed, SCREEN_WIDTH);
+  spawnObstacle(score);
 
-  if (checkCollision(obstacle, player)) {
-    currentState = GAME_OVER;
-    return;
+  // Loop backwards, otherwise would skip elements when erasing:
+  // Vector: [A, B, C, D]
+  // i=0: Check A, lösche A → [B, C, D]
+  // i=1: Check jetzt C (B wurde übersprungen!) → [B, C, D]
+  // weil B jetzt an Position 0 ist, aber i ist schon bei 1!
+
+  for (int i = obstacles.size() - 1; i >= 0; i--) {
+    Obstacle &obstacle = obstacles[i];
+    if (checkCollision(obstacle, player)) {
+      currentState = GAME_OVER;
+      return;
+    }
+    obstacle.updatePosition(obstacleSpeed);
+    obstacle.asSquare(oled, groundY);
+
+    if (obstacle.x + obstacle.width < 0) {
+      obstacles.erase(obstacles.begin() + i);
+      score++;
+    }
   }
 
   // Boden zeichnen
@@ -126,8 +165,6 @@ void game(int playerShape) {
 
   // Player zeichnen
   player.asSquare(oled);
-
-  obstacle.asSquare(oled, groundY);
 
   oled.display();
   delay(16);
@@ -145,7 +182,7 @@ void startingScreen() {
   oled.display();
 
   if (digitalRead(gameButtonPin) == LOW) {
-    delay(200); 
+    delay(200);
     currentState = PLAYING;
   }
 }
