@@ -28,7 +28,7 @@ int lastMilestone = 0;
 
 std::vector<Obstacle> obstacles;
 
-int selectedShape = 0; // 0=Quadrat, 1=Kreis, 2=Dreieck
+int selectedShape = 0; // 0=Square, 1=Circle, 2=Triangle
 
 enum GameState { MENU, PLAYING, GAME_OVER };
 GameState currentState = MENU;
@@ -40,7 +40,7 @@ float obstacleX = SCREEN_WIDTH;
 
 Adafruit_SSD1306 oled(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-// Globale Instanzen
+// Global instances
 Player player(playerXPosition, groundY - playerHeight, playerWidth,
               playerHeight);
 Obstacle obstacle(obstacleX, groundY, 10, 20);
@@ -75,27 +75,27 @@ void gameOverScreen() {
   oled.print("Best: ");
   oled.println(highscore);
 
-  // Shape auswählen mit links/rechts
+  // Select shape with left/right
   oled.setTextSize(1);
   oled.setCursor(5, 50);
   oled.println("< Menu    Restart >");
   oled.display();
 
-  // Links Button - vorherige Shape
+  // Left Button - previous Shape
   if (digitalRead(leftButtonPin) == LOW) {
-    delay(200); // Entprellen
+    delay(200);
     reset();
     currentState = MENU;
   }
 
-  // Rechts Button - nächste Shape
+  // Right Button - next Shape
   if (digitalRead(rightButtonPin) == LOW) {
-    delay(200); // Entprellen
+    delay(200);
     reset();
     currentState = PLAYING;
   }
 
-  // Start Button - Spiel starten
+  // Start Button - start game
   if (digitalRead(gameButtonPin) == LOW) {
     delay(200);
     reset();
@@ -106,7 +106,7 @@ void gameOverScreen() {
 // game helper functions
 void ground() { oled.drawLine(0, 54, 127, 54, SSD1306_WHITE); }
 
-void updatePlayer(Player &player) {
+void updatePlayer() {
   if (isJumping) {
     player.y += velocityY;
     velocityY += 0.3; // Gravitation
@@ -131,7 +131,7 @@ bool checkCollision(Obstacle obstacle, Player player) {
   return false;
 }
 
-// Sprung-Funktionen
+// start Jump
 void startJump() {
   if (!isJumping) {
     isJumping = true;
@@ -140,32 +140,27 @@ void startJump() {
 }
 
 void spawnObstacle(int score) {
-  // spwan dauer verkürzen bei jeden 10 punkten
-  if (score % 10 == 0 && score != 0 &&
-      score != lastMilestone) {          // change only every 10 points
+  if (score % 10 == 0 && score != 0 && score != lastMilestone) {
     spawnInterval -= (score / 10) * 100; // every 10 points 100ms less
     obstacleSpeed += 0.2;
-    Serial.println("Increased difficulty!");
     lastMilestone = score;
   }
+  // min spawn interval
   if (spawnInterval < 800) {
-    spawnInterval = 800; // min spawn interval
+    spawnInterval = 800;
   }
+  // max obstacle speed
   if (obstacleSpeed > 5.0) {
-    obstacleSpeed = 5.0; // max speed
+    obstacleSpeed = 5.0;
   }
 
-  // einen timer, wenn der abgelaufen ist wird ein neues Hindernis gespawnt
   if (millis() > lastSpawnTime + spawnInterval) {
-    // hindernisse müssen höhe und breite zufällig kommen, position auch - muss
-    // alles ein min und max geben
     lastSpawnTime = millis();
     int obstacleHeight = random(5, 30);
     int obstacleWidth = random(5, 15);
-    int obsticleY = random(10, groundY - obstacleHeight);
     lastSpawnTime = millis();
-    obstacles.push_back(
-        Obstacle(SCREEN_WIDTH, obsticleY, obstacleWidth, obstacleHeight));
+    obstacles.push_back(Obstacle(SCREEN_WIDTH, groundY - obstacleHeight,
+                                 obstacleWidth, obstacleHeight));
   }
 }
 
@@ -184,15 +179,15 @@ void game(int playerShape) {
     startJump();
   }
 
-  updatePlayer(player);
+  updatePlayer();
 
   spawnObstacle(score);
 
   // Loop backwards, otherwise would skip elements when erasing:
   // Vector: [A, B, C, D]
-  // i=0: Check A, lösche A → [B, C, D]
-  // i=1: Check jetzt C (B wurde übersprungen!) → [B, C, D]
-  // weil B jetzt an Position 0 ist, aber i ist schon bei 1!
+  // i=0: Check A, delete A → [B, C, D]
+  // i=1: Check now C (B was skipped!) → [B, C, D]
+  // because B is now at position 0, but i is already at 1!
 
   for (int i = obstacles.size() - 1; i >= 0; i--) {
     Obstacle &obstacle = obstacles[i];
@@ -209,10 +204,10 @@ void game(int playerShape) {
     }
   }
 
-  // Boden zeichnen
+  // Show Ground
   ground();
 
-  // Player zeichnen
+  // Show Player
   if (playerShape == 0)
     player.asSquare(oled);
   else if (playerShape == 1)
@@ -223,6 +218,8 @@ void game(int playerShape) {
   displayScore();
 
   oled.display();
+  // Control frame rate - 1000ms ÷ 60 = 16.666...ms -> something around 30-60
+  // FPS, code takes some time to execute
   delay(16);
 }
 
@@ -233,7 +230,7 @@ void menuScreen() {
   oled.setCursor(10, 10);
   oled.println("GeoDash");
 
-  // Shape auswählen mit links/rechts
+  // Select shape left right
   oled.setTextSize(1);
   oled.setCursor(20, 35);
   oled.print("Shape: ");
@@ -248,21 +245,21 @@ void menuScreen() {
   oled.println("< Change    Start >");
   oled.display();
 
-  // Links Button - vorherige Shape
+  // Left Button - previous shape
   if (digitalRead(leftButtonPin) == LOW) {
-    delay(200); // Entprellen
+    delay(200);
     selectedShape--;
     if (selectedShape < 0)
       selectedShape = 2; // Wrap around
   }
 
-  // Rechts Button - nächste Shape
+  // Right Button - next shape
   if (digitalRead(rightButtonPin) == LOW) {
-    delay(200); // Entprellen
+    delay(200);
     currentState = PLAYING;
   }
 
-  // Start Button - Spiel starten
+  // Start Button - start game
   if (digitalRead(gameButtonPin) == LOW) {
     delay(200);
     currentState = PLAYING;
@@ -292,5 +289,4 @@ void loop() {
     gameOverScreen();
     break;
   }
-  Serial.println(score);
 }
